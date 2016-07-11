@@ -30,20 +30,24 @@ feedparser.on('finish', function() {
         var url = episode["feedburner:origenclosurelink"]["#"],
             filename = function () {
                 var d = episode.pubdate;
-                return d.getFullYear() +
+                return "downloads/" +
+                    d.getFullYear() +
                     ("0" + (d.getMonth() + 1)).slice(-2) +
                     ("0" + d.getDate()).slice(-2) +
                     url.match(/(\w+)(\.\w+)+(?!.*(\w+)(\.\w+)+)/)[2];
-                }(),
-            file = fs.createWriteStream("downloads/" + filename);
-        console.log("Attempting download " + url + " to " + filename + "...");
-        request
-            .get(url)
-            .on('error', function(err) {
-                console.log(err)
-            })
-            .on("end", callback)
-            .pipe(file);
+                }();
+        fs.stat(filename, function (err, stat) {
+            if (!err) return callback(null);
+            var file = fs.createWriteStream(filename);
+            console.log("Downloading " + url + " to " + filename + "...");
+            request
+                .get(url)
+                .on('error', function(err) {
+                    console.log(err)
+                })
+                .on("end", callback)
+                .pipe(file);
+        });
     }, function (err) {
         if (err) console.log(err);
     });
