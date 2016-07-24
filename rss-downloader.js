@@ -27,15 +27,25 @@ feedparser.on('finish', function() {
     episodes.forEach(function (e) { e.pubdate = new Date(e.pubdate); });
     episodes.sort(function (a, b) { return a.pubdate - b.pubdate; });
     async.eachSeries(episodes, function (episode, callback) {
-        var url = episode["feedburner:origenclosurelink"]["#"],
-            filename = function () {
-                var d = episode.pubdate;
-                return "downloads/" +
-                    d.getFullYear() +
-                    ("0" + (d.getMonth() + 1)).slice(-2) +
-                    ("0" + d.getDate()).slice(-2) +
-                    url.match(/(\w+)(\.\w+)+(?!.*(\w+)(\.\w+)+)/)[2];
-                }();
+        var url = episode["feedburner:origenclosurelink"] ?
+                episode["feedburner:origenclosurelink"]["#"] :
+                    episode["rss:enclosure"] ?
+                    episode["rss:enclosure"]["@"].url :
+                        episode["media:content"] ?
+                        episode["media:content"]["@"].url :
+                        null;
+        if (!url) {
+            console.log("Skipping " + JSON.stringify(episode));
+            return callback(null);
+        }
+        var filename = function () {
+            var d = episode.pubdate;
+            return "downloads/" +
+                d.getFullYear() +
+                ("0" + (d.getMonth() + 1)).slice(-2) +
+                ("0" + d.getDate()).slice(-2) +
+                url.match(/(\w+)(\.\w+)+(?!.*(\w+)(\.\w+)+)/)[2];
+            }();
         fs.stat(filename, function (err, stat) {
             if (!err) return callback(null);
             var file = fs.createWriteStream(filename);

@@ -1,0 +1,26 @@
+{
+  "name": "radiolab-downloader",
+  "version": "0.0.1",
+  "description": "",
+  "main": "web-downloader.js",
+  "dependencies": {
+    "async": "^2.0.1",
+    "cheerio": "^0.20.0",
+    "feedparser": "^1.1.4",
+    "request": "^2.74.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/giacecco/radiolab-downloader.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/giacecco/radiolab-downloader/issues"
+  },
+  "homepage": "https://github.com/giacecco/radiolab-downloader#readme"
+}
