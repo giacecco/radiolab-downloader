@@ -5,43 +5,55 @@ const async = require("async"),
       cheerio = require("cheerio"),
       request = require("request");
 
-const downloadFromPage = (pageNo, callback) => {
-    console.log("pageNo is " + pageNo);
+const URL_REGEX = new RegExp(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]{2,4}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi);
+
+const listDownloadableEpisodesFromPage = (pageNo, callback) => {
+    console.log("Page " + pageNo);
+    var episodes = [ ];
     request.get({
         "uri": "http://www.radiolab.org/series/podcasts/" + (pageNo > 1 ? pageNo.toString() + "/" : "")
-    }, (error, response, body) => {
-        console.log(body);
-        if (error) return system.exit(1);
+    }, (err, response, body) => {
+        if (err) return system.exit(1);
         let $ = cheerio.load(body);
         $("div.series-item", "#series-main").each((i, elem) => {
             let title = $("div:nth-child(1) h2:nth-child(2) a:nth-child(1)", elem).text().trim(),
                 date = $("div:nth-child(1) > h3:nth-child(3)", elem).text().trim(),
-                url = $("#audio_buttons_624449_1469274024632340 > a:nth-child(3)").html();
+                url = ((($("div:nth-child(1) > script", elem) || "").html() || "").match(URL_REGEX) || [ null ])[0];
             date = date.split(",")[2].trim().substr(2, 2) +
                 { "January": "01", "February": "02", "March": "03",
                   "April": "04", "May": "05", "June": "06", "July": "07",
                   "August": "08", "September": "09", "October": "10",
                   "November": "11", "December": "12" }[date.split(",")[1].trim().split(" ")[0]] +
                 date.split(",")[1].trim().split(" ")[1];
-            console.log("- ", title, date, url);
+            if (url) episodes.push({
+                "title": title,
+                "date": date,
+                "url": url
+            });
         });
-        //$("#series-main div.series-item").each(() => {
-        //    console.log($(this).html());
-        //});
-        callback(null);
+        callback(null, episodes);
     });
 }
 
-let pageNo = 0,
-    keepGoing = true;
-async.doWhilst(
-    callback => {
-        pageNo++;
-        downloadFromPage(pageNo, err => {
-            keepGoing = !err;
-            keepGoing = false;
-        });
-    },
-    () => !keepGoing,
-    err => { }
-);
+const listDownloadableEpisodes = callback => {
+    let pageNo = 0,
+        episodes = [ ],
+        keepGoing = true;
+    async.doWhilst(
+        callback => {
+            pageNo++;
+            listDownloadableEpisodesFromPage(pageNo, (err, pageEpisodes) => {
+                if (err) return system.exit(1);
+                episodes = episodes.concat(pageEpisodes);
+                keepGoing = (pageNo === 1);
+                callback(null);
+            });
+        },
+        () => !keepGoing,
+        err => { callback(err, episodes); }
+    );
+}
+
+listDownloadableEpisodes((err, episodes) => {
+    console.log(episodes.map(e => ("- " + e.date + " " + e.title + " " + e.url)).join("\n"));
+});
