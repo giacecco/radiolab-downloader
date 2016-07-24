@@ -3,9 +3,35 @@
 // Note that this ES formula does not work yet: import doWhilst from 'async/doWhilst';
 const async = require("async"),
       cheerio = require("cheerio"),
-      request = require("request");
+      fs = require("fs"),
+      request = require("request"),
+      // https://github.com/parshap/node-sanitize-filename
+      sanitize = require("sanitize-filename");
 
-const URL_REGEX = new RegExp(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]{2,4}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi);
+const MP3_URL_REGEX = new RegExp(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]{2,4}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)\.mp3/gi);
+
+// If the destination _filename_ does not exists already, this function
+// downloads the file at the specified _url_ to it.
+const downloadEpisode = (url, filename, callback) => {
+    fs.stat(filename, (err, stat) => {
+        if (!err) return callback(null);
+        var file = fs.createWriteStream(filename);
+        console.log("Downloading " + url + " to " + filename + "...");
+        request
+            .get(url)
+            .on('error', function(err) {
+                console.log(err)
+            })
+            .on("end", callback)
+            .pipe(file);
+    );
+}
+
+const downloadAll = (episodes, callback) => {
+    async.eachSeries(episodes, (e, callback) => {
+        downloadEpisode(e.url, "downloads/" + sanitize(e.date + " " + e.title + ".mp3"), callback);
+    })
+}
 
 const listDownloadableEpisodesFromPage = (pageNo, callback) => {
     console.log("Page " + pageNo);
@@ -18,7 +44,7 @@ const listDownloadableEpisodesFromPage = (pageNo, callback) => {
         $("div.series-item", "#series-main").each((i, elem) => {
             let title = $("div:nth-child(1) h2:nth-child(2) a:nth-child(1)", elem).text().trim(),
                 date = $("div:nth-child(1) > h3:nth-child(3)", elem).text().trim(),
-                url = ((($("div:nth-child(1) > script", elem) || "").html() || "").match(URL_REGEX) || [ null ])[0];
+                url = ((($("div:nth-child(1) > script", elem) || "").html() || "").match(MP3_URL_REGEX) || [ null ])[0];
             date = date.split(",")[2].trim().substr(2, 2) +
                 { "January": "01", "February": "02", "March": "03",
                   "April": "04", "May": "05", "June": "06", "July": "07",
@@ -45,15 +71,21 @@ const listDownloadableEpisodes = callback => {
             listDownloadableEpisodesFromPage(pageNo, (err, pageEpisodes) => {
                 if (err) return system.exit(1);
                 episodes = episodes.concat(pageEpisodes);
-                keepGoing = (pageNo === 1);
+                // TODO: need to implement check on getting to the last page:
+                //       the last page is returned when requesting any number
+                //       higher than the last
+                keepGoing = (pageNo < 13);
                 callback(null);
             });
         },
-        () => !keepGoing,
+        () => keepGoing,
         err => { callback(err, episodes); }
     );
 }
 
 listDownloadableEpisodes((err, episodes) => {
-    console.log(episodes.map(e => ("- " + e.date + " " + e.title + " " + e.url)).join("\n"));
+    if (err) return system.exit(1);
+    downloadAll(episodes, err => {
+        console.log("Finished.");
+    })
 });

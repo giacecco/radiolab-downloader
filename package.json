@@ -7,7 +7,8 @@
     "async": "^2.0.1",
     "cheerio": "^0.20.0",
     "feedparser": "^1.1.4",
-    "request": "^2.74.0"
+    "request": "^2.74.0",
+    "sanitize-filename": "^1.6.0"
   },
   "devDependencies": {},
   "scripts": {
